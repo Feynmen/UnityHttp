@@ -26,23 +26,60 @@ namespace UnityHTTP
 
         private HttpCommunication() { }
 
-        public void Init(string serverRootUrl, int requestTimeout = 50)
+        /// <summary>
+        /// Init HttpCommunication with server root URL and request timeout
+        /// </summary>
+        /// <param name="serverRootUrl">Server root URl. For example: "https://github.com/"</param>
+        /// <param name="requestTimeout">Request timeout</param>
+        public void Init(string serverRootUrl, int requestTimeout)
         {
             _serverUrl = serverRootUrl;
+            _requestTimeout = requestTimeout;
         }
 
-        public void Send<TRequest, TResponse>(RequestDataBase data, Action<TResponse> callback) where TRequest : RequestBase<TRequest>, new() where TResponse : SimpleResponse, new()
+        /// <summary>
+        /// Init HttpCommunication with server root URL
+        /// </summary>
+        /// <param name="serverRootUrl">Server root URl. For example: "https://github.com/"</param>
+        public void Init(string serverRootUrl)
+        {
+            _serverUrl = serverRootUrl;
+            _requestTimeout = 50;
+        }
+
+        /// <summary>
+        /// Init HttpCommunication. You mast insert full server URl in your requests
+        /// </summary>
+        public void Init()
+        {
+            _serverUrl = string.Empty;
+            _requestTimeout = 50;
+        }
+        /// <summary>
+        /// Send a request to a server that has been extended from the RequestBase class
+        /// </summary>
+        /// <typeparam name="TRequest">Your request type that has been extended from the RequestBase class</typeparam>
+        /// <typeparam name="TResponse">SimpleResponse type or RequestResponse type that has been extended from the SimpleResponse class</typeparam>
+        /// <param name="requestData">Data container type that has been extended from the RequestDataBase class</param>
+        /// <param name="resultCallback">Callback which signals the completion of communication with the server</param>
+        public void Send<TRequest, TResponse>(RequestDataBase requestData, Action<TResponse> resultCallback) where TRequest : RequestBase<TRequest>, new() where TResponse : SimpleResponse, new()
         {
             Debug.Log("Send - " + typeof(TRequest));
-            Debug.Log(data);
-            var request = RequestBase<TRequest>.Create(_serverUrl, data);
-            StartCoroutine(SendRequestWithTimer(request, () =>
+            Debug.Log(requestData);
+            var request = RequestBase<TRequest>.Create(_serverUrl, requestData);
+            StartCoroutine(SendRequestWithTimer(request, compliteCallback: () =>
             {
                 request.OnSendCompleted();
-                callback.Invoke(ParseResponse<TResponse, TRequest>(request));
-            }, () =>
+                if (resultCallback != null)
+                {
+                    resultCallback.Invoke(ParseResponse<TResponse, TRequest>(request));
+                }
+            }, timeoutCallback: () =>
             {
-                callback.Invoke(new TResponse { error = "Timeout", errorCode = 408 });
+                if (resultCallback != null)
+                {
+                    resultCallback.Invoke(new TResponse {error = "Timeout", errorCode = 408});
+                }
             }));
         }
 
